@@ -19,22 +19,23 @@ import { WeatherDisplayComponent } from './weather-display/weather-display.compo
 export class AppComponent implements OnInit {
   cityControl = new FormControl();
   weatherData: WeatherData | null = null;
-  searchForm: FormGroup;  // Explicitly declare
+  searchForm: FormGroup;
   filteredCities: Observable<string[]> = of([]);
-  error: boolean = false;
+  error = false;
 
   constructor(private weatherService: WeatherService, private fb: FormBuilder) {
-    this.searchForm = this.fb.group({ city: this.cityControl }); // Initialize form
+    this.searchForm = this.fb.group({ city: this.cityControl });
   }
 
   ngOnInit(): void {
     this.getUserLocation();
 
+    // Set up city suggestions based on user input
     this.filteredCities = this.cityControl.valueChanges.pipe(
       startWith(''),
       switchMap(value => value ? this.weatherService.getCitySuggestions(value).pipe(
-        map(response => Array.isArray(response) ? response.map(city => city) : []),
-        catchError(() => of([]))
+        map(response => response.features.map((feature: any) => feature.properties.city)),
+        catchError(() => of([])) // Return empty array on error
       ) : of([]))
     );
   }
@@ -48,19 +49,19 @@ export class AppComponent implements OnInit {
     this.weatherService.getWeatherData(cityName).subscribe({
       next: (response) => {
         this.weatherData = response;
-        this.cityControl.reset();
+        this.cityControl.reset(); // Clear city input after data is retrieved
       },
       error: () => {
-        this.error = true;
+        this.error = true; // Set error flag if request fails
       }
     });
   }
 
   private getUserLocation() {
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         position => this.getWeatherDataByCoords(position.coords.latitude, position.coords.longitude),
-        () => this.getWeatherData('Cairo')
+        () => this.getWeatherData('Cairo') // Fallback city if geolocation fails
       );
     } else {
       this.getWeatherData('Cairo');
